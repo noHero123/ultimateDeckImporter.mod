@@ -139,13 +139,14 @@ namespace deckimporter.mod
             {
                 
             }
-            if (info.target is DeckBuilder2 && info.targetMethod.Equals("Start"))
+            if (info.target is DeckBuilder2 && info.targetMethod.Equals("Start") && !(info.target is Crafter))
             {
                 imp.setDeckbuilder(info.target as DeckBuilder2);
                 this.db = info.target as DeckBuilder2;
             }
-            if (info.target is DeckBuilder2 && info.targetMethod.Equals("OnGUI") )
+            if (info.target is DeckBuilder2 && info.targetMethod.Equals("OnGUI") && !(info.target is Crafter))
             {
+                
                 GUI.depth = 21;
                 GUIPositioner subMenuPositioner = App.LobbyMenu.getSubMenuPositioner(1f, 8);
                 Rect guildbutton = new Rect(subMenuPositioner.getButtonRect(7f));
