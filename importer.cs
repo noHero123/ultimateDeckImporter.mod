@@ -338,14 +338,27 @@ namespace deckimporter.mod
                 if (this.dontOwnAllCards) return "You dont own: " + this.missingCards;
                 return "ok";
             }
+
+            if (url.StartsWith("www.UltimateDeckImporter.com/?l="))
+            {
+
+                string ressi = url.Replace("www.UltimateDeckImporter.com/?l=", "");
+                this.readDeckCardsFromScrollsPWShare(ressi);
+                this.createDeckCardsMessage();
+                if (this.noadded) return "noadded";
+                if (this.dontOwnAllCards) return "You dont own: " + this.missingCards;
+                return "ok";
+
+            }
+
             return "notok";
             // DAMN, it issnt up to date (decay is missing)
             if (url.StartsWith("scrolls.famousframes.de/")) //scrolls.famousframes.de = builder.scrolls.pw
             {
                 url = url.Replace("scrolls.famousframes.de/", "builder.scrolls.pw/");
             }
-            
 
+            
             //http://builder.scrolls.pw/builds/64
             if (url.StartsWith("builder.scrolls.pw/builds/"))
             {
@@ -364,7 +377,9 @@ namespace deckimporter.mod
                 if (this.dontOwnAllCards) return "You dont own: " + this.missingCards;
                 return "ok";
             }
+            //http://scrolls.famousframes.de/?l=1,3:4,1:13,1   = ?l + scrollsid,number:nextscrollsid,number:...
             //or http://builder.scrolls.pw/?l=1,3:2,3:13,3:15,3:43,3:44,3
+
             if (url.StartsWith("builder.scrolls.pw/?l="))
             {
 

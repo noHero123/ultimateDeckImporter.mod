@@ -26,6 +26,11 @@ namespace deckimporter.mod
         DeckSaveMessage copydeck;
         private MethodInfo generateDeckSaveMessage;
 
+        //for copying string into buffer
+        Type T = typeof(GUIUtility);
+        PropertyInfo systemCopyBufferProperty;
+
+
         public void handleMessage(Message msg)
         { // collect data for enchantments (or units who buff)
 
@@ -71,6 +76,8 @@ namespace deckimporter.mod
                 App.Communicator.addListener(this);
             }
             catch { }
+            this.systemCopyBufferProperty = T.GetProperty("systemCopyBuffer", BindingFlags.Static | BindingFlags.NonPublic);
+            
 		}
 
         
@@ -82,7 +89,7 @@ namespace deckimporter.mod
 
 		public static int GetVersion ()
 		{
-			return 1;
+			return 2;
 		}
 
 
@@ -159,11 +166,41 @@ namespace deckimporter.mod
                     App.Popups.ShowTextInput(this, "", "", "impdeck", "Import deck", "Insert the link to your deck:", "Import");
                 }
 
+                if (LobbyMenu.drawButton(new Rect((float)Screen.height * 0.04f + (float)Screen.height * 0.11f, (float)Screen.height * 0.935f, (float)Screen.height * 0.1f, (float)Screen.height * 0.035f), "Export", this.lobbyskin))
+                {
+                    string link = this.createLink();
+                    systemCopyBufferProperty.SetValue(null, link, null);
+                    App.Popups.ShowOk(this, "Export Deck", "A link to your Deck was created...", "...and copied to your clipboard.", "OK"); 
+                }
+
             }
 
             return;//return false;
         }
 
+
+        private string createLink()
+        {
+            string retu = "";
+            List<DeckCard> tableCards = (List<DeckCard>)typeof(DeckBuilder2).GetField("tableCards", BindingFlags.Instance | BindingFlags.NonPublic).GetValue(this.db);
+            Dictionary<int, int> cardDic = new Dictionary<int, int>();
+            foreach(DeckCard dc in tableCards)
+            {
+                int type=dc.card.getCardInfo().getType();
+                if (cardDic.ContainsKey(type)) { cardDic[type] = cardDic[type] + 1; } else { cardDic[type] = 1; }
+            }
+           
+            foreach(KeyValuePair<int,int> kvp in cardDic)
+            {
+                if (retu == "") { retu = kvp.Key + "," + kvp.Value; }
+                else
+                {
+                    retu = retu + ":" + kvp.Key + "," + kvp.Value;
+                }
+            }
+            retu = "http://www.UltimateDeckImporter.com/?l=" +  retu;
+            return retu;
+        }
 
 
         public void PopupCancel(string popupType)
