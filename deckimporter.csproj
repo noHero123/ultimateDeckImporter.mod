@@ -47,10 +47,14 @@
     </Reference>
   </ItemGroup>
   <ItemGroup>
+    <Compile Include="Deckcreator.cs" />
+    <Compile Include="DecksearchUI.cs" />
+    <Compile Include="GoogleImporterExporter.cs" />
     <Compile Include="importer.cs" />
     <Compile Include="MetaMaker.cs" />
     <Compile Include="Properties\AssemblyInfo.cs" />
     <Compile Include="deckimporter.cs" />
+    <Compile Include="Rectomat.cs" />
   </ItemGroup>
   <Import Project="$(MSBuildBinPath)\Microsoft.CSharp.targets" />
 </Project>

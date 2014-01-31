@@ -25,8 +25,21 @@ namespace deckimporter.mod
         bool dontOwnAllCards = false;
         string missingCards = "";
         bool noadded = false;
+        string tempmessage;
 
+        public struct Deckstatistics
+        {
+            public int anzunownedscrolls ;
+            public List<int> unownedscrolls ;
+            public bool containsGrowth;
+            public bool containsEnergy;
+            public bool containsOrder;
+            public bool containsDecay;
+            public string missingCards;
+            public int numberOfScrollsInDeck;
+            public string deckList;
 
+        }
 
 
         public Importer()
@@ -86,7 +99,7 @@ namespace deckimporter.mod
 
 
 
-        private void createDeckCardsMessage()
+        private void createDeckCardsMessage(bool testonly)
         {
             if (this.deckCards.Count == 0) { this.noadded = true; return; }
             DeckCardsMessage dcm = new DeckCardsMessage();
@@ -163,38 +176,87 @@ namespace deckimporter.mod
             if (decayused) { rt[temp_res] = ResourceType.DECAY; temp_res++; }
             dcm.resources = rt;
             // set positions
-            string meta = mtMkr.getMetaData(addedcards);
-            Console.WriteLine("#meta " + meta);
-            dcm.metadata = meta;
-
+            if (!testonly)
+            {
+                string meta = mtMkr.getMetaData(addedcards);
+                Console.WriteLine("#meta " + meta);
+                dcm.metadata = meta;
+            }
             dcm.valid = false;
             dcm.deck = "";
             // add the deck!
             Console.WriteLine("set cards");
 
-
+           
             //db.handleMessage(dcm); //unsave ...  was unsave, but i writed createRealDeckMessageString, so i have to use the other version (or my work would be needless)!
 
 
             string rdms = this.createRealDeckMessageString(dcm);
             Message msg = MessageFactory.create(MessageFactory.getMessageName(rdms), rdms);
+            if (testonly)
+            {
+                this.tempmessage = rdms;
+            }
             Console.WriteLine("#" + msg.getRawText());
-            dispatchMessages.Invoke(App.Communicator,new object[]{msg});
+            if (!testonly) dispatchMessages.Invoke(App.Communicator, new object[] { msg });
+            this.missingCards = "";
             if (this.deckCards.Count > 0)
             {
                 this.dontOwnAllCards = true;
                 CardTypeManager ctm=CardTypeManager.getInstance();
-                    foreach (int ii in deckCards)
+                Dictionary<string, int> idNotOwnedNumber = new Dictionary<string, int>();
+                foreach (int ii in deckCards)
+                {
+                    CardType type = ctm.get(ii);
+                    if (idNotOwnedNumber.ContainsKey(type.name))
                     {
-                        if (this.missingCards != "") this.missingCards = this.missingCards + ", ";
-                        CardType type = ctm.get(ii);
-                        this.missingCards = this.missingCards + type.name;
+                        idNotOwnedNumber[type.name] += 1;
+                    }
+                    else
+                    {
+                        idNotOwnedNumber.Add(type.name, 1);
+                    }
+
+                }
+
+                foreach (KeyValuePair<string, int> kvp in idNotOwnedNumber.OrderBy(i => i.Key))
+                    {
+                        if (this.missingCards != "") this.missingCards = this.missingCards + "\r\n";
+                        CardType type = ctm.get(kvp.Key);
+                        this.missingCards = this.missingCards + kvp.Value +"x "+kvp.Key;
                     }
           
             }
 
         }
 
+
+        private string getDecklist()
+        {
+            string retu = "";
+            CardTypeManager ctm = CardTypeManager.getInstance();
+            Dictionary<string, int> idNotOwnedNumber = new Dictionary<string, int>();
+            foreach (int ii in deckCards)
+            {
+                CardType type = ctm.get(ii);
+                if (idNotOwnedNumber.ContainsKey(type.name))
+                {
+                    idNotOwnedNumber[type.name] += 1;
+                }
+                else
+                {
+                    idNotOwnedNumber.Add(type.name, 1);
+                }
+
+            }
+            foreach (KeyValuePair<string, int> kvp in idNotOwnedNumber.OrderBy(i => i.Key))
+            {
+                if (retu != "") retu = retu + "\r\n";
+                retu = retu + kvp.Value + "x " + kvp.Key;
+            }
+
+            return retu;
+        }
 
         private void readDeckCardsFromScrollsguide(string s)
         {
@@ -249,12 +311,15 @@ namespace deckimporter.mod
             Console.WriteLine("#read deck cards");
             this.deckCards.Clear();
             string[] stringarray = s.Split(new string[] { ":" }, StringSplitOptions.RemoveEmptyEntries);
-            foreach (string lolo in stringarray)
+            foreach (string lol in stringarray)
             {
-                string idd = lolo.Split(',')[0];
-                int id = Convert.ToInt32(idd);
-                string anzz = lolo.Split(',')[1];
-                int anz = Convert.ToInt32(anzz);
+                string lolo= lol;
+                if (!(lolo.Contains(","))) lolo = lolo + ",3";
+                    string idd = lolo.Split(',')[0];
+                    int id = Convert.ToInt32(idd);
+                    string anzz = lolo.Split(',')[1];
+                    int anz = Convert.ToInt32(anzz);
+
                 for (int i = 0; i < Math.Min(anz, 3); i++)
                 {
                     deckCards.Add(id);
@@ -314,9 +379,9 @@ namespace deckimporter.mod
                 string ressi = reader.ReadToEnd();
                 Console.WriteLine("#get: " + ressi);
                 this.readDeckCardsFromScrollsguide(ressi);
-                this.createDeckCardsMessage();
+                this.createDeckCardsMessage(false);
                 if (this.noadded) return "noadded";
-                if (this.dontOwnAllCards) return "You dont own: " + this.missingCards;
+                if (this.dontOwnAllCards) return "You dont own: \r\n" + this.missingCards;
                 return "ok";
 
             }
@@ -333,7 +398,7 @@ namespace deckimporter.mod
                 System.IO.StreamReader reader = new System.IO.StreamReader(stream, System.Text.Encoding.UTF8);
                 string ressi = reader.ReadToEnd();
                 readDeckCardsFromSeeMeScrollin(ressi);
-                this.createDeckCardsMessage();
+                this.createDeckCardsMessage(false);
                 if (this.noadded) return "noadded";
                 if (this.dontOwnAllCards) return "You dont own: " + this.missingCards;
                 return "ok";
@@ -344,7 +409,7 @@ namespace deckimporter.mod
 
                 string ressi = url.Replace("www.UltimateDeckImporter.com/?l=", "");
                 this.readDeckCardsFromScrollsPWShare(ressi);
-                this.createDeckCardsMessage();
+                this.createDeckCardsMessage(false);
                 if (this.noadded) return "noadded";
                 if (this.dontOwnAllCards) return "You dont own: " + this.missingCards;
                 return "ok";
@@ -372,7 +437,7 @@ namespace deckimporter.mod
                 string ressi = reader.ReadToEnd();
                 Console.WriteLine("#get: " + ressi);
                 this.readDeckCardsFromScrollsPW(ressi);
-                this.createDeckCardsMessage();
+                this.createDeckCardsMessage(false);
                 if (this.noadded) return "noadded";
                 if (this.dontOwnAllCards) return "You dont own: " + this.missingCards;
                 return "ok";
@@ -385,7 +450,7 @@ namespace deckimporter.mod
 
                 string ressi = url.Replace("builder.scrolls.pw/?l=", "");
                 this.readDeckCardsFromScrollsPWShare(ressi);
-                this.createDeckCardsMessage();
+                this.createDeckCardsMessage(false);
                 if (this.noadded) return "noadded";
                 if (this.dontOwnAllCards) return "You dont own: " + this.missingCards;
                 return "ok";
@@ -394,6 +459,43 @@ namespace deckimporter.mod
             return "notok";
         }
 
+
+        public Deckstatistics getdata(string link)
+        {
+            Deckstatistics retu= new Deckstatistics();
+            retu.anzunownedscrolls = 0;
+            retu.unownedscrolls = new List<int>();
+            string url = link;
+                retu.containsDecay=false;
+                retu.containsEnergy=false;
+                retu.containsGrowth=false;
+                retu.containsOrder=false;
+                string ressi = url.Replace("www.UltimateDeckImporter.com/?l=", "");
+                this.readDeckCardsFromScrollsPWShare(ressi);
+                retu.numberOfScrollsInDeck = this.deckCards.Count();
+                retu.deckList = this.getDecklist();
+                CardTypeManager ctm = CardTypeManager.getInstance();
+                foreach(int iii in this.deckCards)
+                {
+                    CardType type = ctm.get(iii);
+                    if (type.costDecay >= 1) retu.containsDecay=true;
+                    if (type.costEnergy >= 1) retu.containsEnergy = true;
+                    if (type.costOrder >= 1) retu.containsOrder = true;
+                    if (type.costGrowth >= 1) retu.containsGrowth = true;
+                }
+
+                this.createDeckCardsMessage(true);//for getting missed scrolls
+                retu.anzunownedscrolls = this.deckCards.Count();
+                retu.missingCards = this.missingCards;
+                foreach (int ii in this.deckCards) { retu.unownedscrolls.Add(ii); }
+                
+                
+
+            
+            return retu; 
+
+
+        }
 
 
     }

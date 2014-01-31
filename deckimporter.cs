@@ -18,13 +18,24 @@ namespace deckimporter.mod
 {
     public class deckimporter : BaseMod, ICommListener, IOkStringCancelCallback, IOkCallback
 	{
+        private int numberScrollsOnBoard = 0;
+        private string choosenname = "";
         bool showJoinMessage = true;
         GUISkin lobbyskin;
         bool showImportMenu = false;
         Importer imp;
         DeckBuilder2 db;
         DeckSaveMessage copydeck;
+        Deckcreator dckcrtr;
+        GoogleImporterExporter googleie;
+        DecksearchUI dcksrchui;
         private MethodInfo generateDeckSaveMessage;
+        private bool buildmode = false;
+        GUISkin buttonSkin = (GUISkin)Resources.Load("_GUISkins/Lobby");
+        private FieldInfo chatLogStyleinfo;
+        private FieldInfo scrollsBookinfo;
+        private FieldInfo scrollsBookRect1info, scrollsBookRect2info;
+        GUIStyle chatlogstye;
 
         //for copying string into buffer
         Type T = typeof(GUIUtility);
@@ -51,9 +62,17 @@ namespace deckimporter.mod
 
             if (msg is LibraryViewMessage)
             {
-                imp.onLibraryViewReceived(msg as LibraryViewMessage);
+                if ((((LibraryViewMessage)msg).profileId == App.MyProfile.ProfileInfo.id))
+                {
+                    imp.onLibraryViewReceived(msg as LibraryViewMessage);
+                    dckcrtr.setOrginalLibraryView(msg);
+                }
             }
 
+            if (msg is CardTypesMessage)
+            {
+                dckcrtr.receiveCardlist(msg as CardTypesMessage);
+            }
 
             return;
         }
@@ -69,7 +88,15 @@ namespace deckimporter.mod
         public deckimporter()
 		{
             generateDeckSaveMessage = typeof(DeckBuilder2).GetMethod("generateDeckSaveMessage", BindingFlags.NonPublic | BindingFlags.Instance);
+            chatLogStyleinfo = typeof(ChatUI).GetField("chatMsgStyle", BindingFlags.Instance | BindingFlags.NonPublic);
+            scrollsBookinfo = typeof(DeckBuilder2).GetField("scrollBook", BindingFlags.Instance | BindingFlags.NonPublic);
+            scrollsBookRect2info = typeof(DeckBuilder2).GetField("rectBook", BindingFlags.Instance | BindingFlags.NonPublic);
+            scrollsBookRect1info = typeof(DeckBuilder2).GetField("rectLeft", BindingFlags.Instance | BindingFlags.NonPublic);
+            dckcrtr = new Deckcreator();
             imp = new Importer();
+            dcksrchui = new DecksearchUI();
+            
+            googleie = new GoogleImporterExporter();
             this.lobbyskin = (GUISkin)Resources.Load("_GUISkins/Lobby");
             try
             {
@@ -101,10 +128,15 @@ namespace deckimporter.mod
             try
             {
                 return new MethodDefinition[] {
-                    scrollsTypes["GlobalMessageHandler"].Methods.GetMethod("handleMessage",new Type[]{typeof(CardTypesMessage)}),
+                    scrollsTypes["DeckBuilder2"].Methods.GetMethod("handleMessage",new Type[]{typeof(Message)}),
                     scrollsTypes["Communicator"].Methods.GetMethod("sendRequest", new Type[]{typeof(Message)}),
                     scrollsTypes["DeckBuilder2"].Methods.GetMethod("OnGUI")[0],
                     scrollsTypes["DeckBuilder2"].Methods.GetMethod("Start")[0],
+                    scrollsTypes["DeckBuilder2"].Methods.GetMethod("OnGUI_drawTopbarSubmenu")[0],
+                    scrollsTypes["ChatUI"].Methods.GetMethod("Initiate")[0],
+                    scrollsTypes["ButtonGroup"].Methods.GetMethod("render")[0],
+                    scrollsTypes["ScrollBook"].Methods.GetMethod("scrollTo",new Type[]{typeof(float)}),
+                    
 
              };
             }
@@ -117,13 +149,17 @@ namespace deckimporter.mod
 
         public override bool WantsToReplace(InvocationInfo info)
         {
+            if (this.buildmode && info.target is DeckBuilder2 && info.targetMethod.Equals("OnGUI_drawTopbarSubmenu")) return true;
+            if (this.buildmode && this.dcksrchui.showdecksearchUI && info.target is ButtonGroup && info.targetMethod.Equals("render")) return true;
+            if (this.buildmode && this.dcksrchui.showdecksearchUI && info.target is ScrollBook && info.targetMethod.Equals("scrollTo")) return true;
+                                    
             return false;
         }
 
         public override void ReplaceMethod(InvocationInfo info, out object returnValue)
         {
             returnValue = null;
-        
+            if (this.buildmode && info.target is DeckBuilder2 && info.targetMethod.Equals("OnGUI_drawTopbarSubmenu"))  GUI.DrawTexture(App.LobbyMenu.getSubMenuRect(1f), ResourceManager.LoadTexture("chatUI/menu_bar_sub"));
                 return;
             
         }
@@ -132,6 +168,10 @@ namespace deckimporter.mod
 
         public override void BeforeInvoke(InvocationInfo info)
         {
+            /*if (this.dcksrchui.showdecksearchUI && this.buildmode && info.target is DeckBuilder2 && info.targetMethod.Equals("OnGUI") && !(info.target is Crafter))
+            {
+                this.dcksrchui.drawSearchUI(true);// because of stupid overlaying button bug in unity
+            }*/
 
             return;
 
@@ -142,15 +182,30 @@ namespace deckimporter.mod
         public override void AfterInvoke (InvocationInfo info, ref object returnValue)
         //public override bool BeforeInvoke(InvocationInfo info, out object returnValue)
         {
-            if (info.target is GlobalMessageHandler && info.targetMethod.Equals("handleMessage") && info.arguments[0] is CardTypesMessage)
-            {
-                
-            }
             if (info.target is DeckBuilder2 && info.targetMethod.Equals("Start") && !(info.target is Crafter))
             {
                 imp.setDeckbuilder(info.target as DeckBuilder2);
                 this.db = info.target as DeckBuilder2;
+                this.buildmode = false;
+                this.dcksrchui.showdecksearchUI = false;
+                //make scrollbook clickable
+                (this.scrollsBookinfo.GetValue(info.target) as ScrollBook).setRect((Rect)this.scrollsBookRect1info.GetValue(info.target));
+                (this.scrollsBookinfo.GetValue(info.target) as ScrollBook).setBoundingRect((Rect)this.scrollsBookRect2info.GetValue(info.target));
             }
+            if (info.target is DeckBuilder2 && info.targetMethod.Equals("handleMessage") && this.buildmode)
+            {
+                if(info.arguments[0] is LibraryViewMessage)
+                this.dckcrtr.sendCheatLibraryView(this.imp);
+            }
+
+            if (info.target is ChatUI && info.targetMethod.Equals("Initiate"))
+            {
+                this.chatlogstye = (GUIStyle)this.chatLogStyleinfo.GetValue(info.target);
+                this.dcksrchui.setChatlogStyle(this.chatlogstye);
+                this.dcksrchui.setrecto(this.chatlogstye);
+            }
+
+
             if (info.target is DeckBuilder2 && info.targetMethod.Equals("OnGUI") && !(info.target is Crafter))
             {
                 
@@ -158,7 +213,42 @@ namespace deckimporter.mod
                 GUIPositioner subMenuPositioner = App.LobbyMenu.getSubMenuPositioner(1f, 8);
                 Rect guildbutton = new Rect(subMenuPositioner.getButtonRect(7f));
                 guildbutton.x = guildbutton.x - 30;
-                if (LobbyMenu.drawButton(guildbutton, "Import",this.lobbyskin))
+                if (this.buildmode)
+                {
+                    if (LobbyMenu.drawButton(guildbutton, "Normal Mode", this.lobbyskin))
+                    {
+                        
+                        (this.scrollsBookinfo.GetValue(info.target) as ScrollBook).setRect((Rect)this.scrollsBookRect1info.GetValue(info.target));
+                        (this.scrollsBookinfo.GetValue(info.target) as ScrollBook).setBoundingRect((Rect)this.scrollsBookRect2info.GetValue(info.target));
+            
+                        string link = this.createLink();
+                        (info.target as DeckBuilder2).clearTable();
+                        this.buildmode = false;
+                        this.dcksrchui.showdecksearchUI = false;
+                        this.dckcrtr.sendOrginalLibraryView(this.imp);
+                        PopupOk("impdeckbuildmode", link);
+                    }
+                }
+                else
+                {
+                    if (LobbyMenu.drawButton(guildbutton, "Build Mode", this.lobbyskin))
+                    {
+                        //make scrollbook clickable
+                        
+                        (this.scrollsBookinfo.GetValue(info.target) as ScrollBook).setRect((Rect)this.scrollsBookRect1info.GetValue(info.target));
+                        (this.scrollsBookinfo.GetValue(info.target) as ScrollBook).setBoundingRect((Rect)this.scrollsBookRect2info.GetValue(info.target));
+            
+                        string link = this.createLink();
+                        (info.target as DeckBuilder2).clearTable();
+                        this.buildmode = true;
+                        this.dcksrchui.showdecksearchUI = false;
+                        this.dckcrtr.sendCheatLibraryView(this.imp);
+                        PopupOk("impdeckbuildmode", link);
+                        
+                    }
+                }
+
+                if (LobbyMenu.drawButton(new Rect((float)Screen.height * 0.04f + (float)Screen.height * 0.11f, (float)Screen.height * 0.935f, (float)Screen.height * 0.1f, (float)Screen.height * 0.035f), "Import", this.lobbyskin) && !this.dcksrchui.showdecksearchUI)
                 {
                     this.showImportMenu = !this.showImportMenu;
                     copydeck = (DeckSaveMessage)this.generateDeckSaveMessage.Invoke((info.target as DeckBuilder2), new object[] { "copycatt" });
@@ -166,12 +256,101 @@ namespace deckimporter.mod
                     App.Popups.ShowTextInput(this, "", "", "impdeck", "Import deck", "Insert the link to your deck:", "Import");
                 }
 
-                if (LobbyMenu.drawButton(new Rect((float)Screen.height * 0.04f + (float)Screen.height * 0.11f, (float)Screen.height * 0.935f, (float)Screen.height * 0.1f, (float)Screen.height * 0.035f), "Export", this.lobbyskin))
+                if (LobbyMenu.drawButton(new Rect((float)Screen.height * 0.04f + (float)Screen.height * 0.11f * 2f, (float)Screen.height * 0.935f, (float)Screen.height * 0.1f, (float)Screen.height * 0.035f), "Export", this.lobbyskin) && !this.dcksrchui.showdecksearchUI)
                 {
                     string link = this.createLink();
                     systemCopyBufferProperty.SetValue(null, link, null);
-                    App.Popups.ShowOk(this, "Export Deck", "A link to your Deck was created...", "...and copied to your clipboard.", "OK"); 
+                    App.Popups.ShowOk(this, "Export Deck", "A link to your Deck was created...", "...and copied to your clipboard.", "OK");
                 }
+
+                if (this.buildmode)
+                {
+                    GUI.skin = this.buttonSkin;
+                    GUIPositioner p = App.LobbyMenu.getSubMenuPositioner(1f, 5);
+                    float xIndex = 0f;
+                    float blubb = 0;
+                    if (AspectRatio.now.isWider(AspectRatio._4_3) && AspectRatio.now.isNarrower(AspectRatio._16_9))
+                    {
+                        blubb = -0.45f;
+                    }
+                    Func<Rect> func = () => p.getButtonRect((xIndex += 1f) + blubb - 1f);
+                    if (LobbyMenu.drawButton(func(), "Share Deck") && !this.dcksrchui.showdecksearchUI)
+                    {
+                        string link = this.createLink();
+                        if (link != "")
+                        {
+                            if (this.numberScrollsOnBoard>=50)
+                            {
+                                App.Popups.ShowTextInput(this, "", "", "sharedeck1", "Share deck", "Insert the name for your deck:", "Next step");
+                            }
+                            else {
+                                App.Popups.ShowOk(this, "Invalid Deck", "Your deck is invalid", "You cant share invalid decks!", "OK");
+                            }
+                            
+                        }
+                        else {
+                            App.Popups.ShowOk(this, "Empty Deck", "Your deck is empty", "You cant share empty decks!", "OK");
+                        }
+                        
+                    }
+                    if (LobbyMenu.drawButton(func(), "Search Deck")&& googleie.workthreadready )
+                    { // get data from google
+                        this.dcksrchui.infodeck.link = "";
+                        this.dcksrchui.loadList = false;
+                        new Thread(new ThreadStart(this.googleie.workthread)).Start();
+                        this.dcksrchui.showdecksearchUI = true;
+                        this.dcksrchui.setrecto(this.chatlogstye);
+                        //make scrollbook UNclickable
+                        
+                        (this.scrollsBookinfo.GetValue(info.target) as ScrollBook).setBoundingRect(new Rect(0,0,0,0));
+                        (this.scrollsBookinfo.GetValue(info.target) as ScrollBook).setRect(new Rect(0, 0, 0, 0));
+                        
+                    }
+
+                    if (LobbyMenu.drawButton(func(), "Clear Table") && !this.dcksrchui.showdecksearchUI)
+                    {
+                        (info.target as DeckBuilder2).clearTable();
+                    }
+
+                    if (this.dcksrchui.showdecksearchUI)
+                    {
+                        if (this.dcksrchui.loadList == false && this.googleie.workthreadready)
+                        {
+                            this.dckcrtr.sendOrginalLibraryView(this.imp);
+                            dcksrchui.setList(this.googleie.sharedDecks, imp);
+                            this.dckcrtr.sendCheatLibraryView(this.imp);
+                        }
+                        bool oldval =dcksrchui.showdecksearchUI;
+                        dcksrchui.drawUI();
+
+                        if (dcksrchui.importme != "")
+                        {
+                            this.dcksrchui.showdecksearchUI = false;
+                            string link = "http://www.UltimateDeckImporter.com/?l=" + dcksrchui.importme;
+                            (info.target as DeckBuilder2).clearTable();
+                            PopupOk("impdeckbuildmode", link);
+                            dcksrchui.importme = "";
+                        }
+
+                        if (dcksrchui.showdecksearchUI != oldval)
+                        {
+                            //make scrollbook clickable again
+                            (this.scrollsBookinfo.GetValue(info.target) as ScrollBook).setInputEnabled(true);
+                            (this.scrollsBookinfo.GetValue(info.target) as ScrollBook).setRect((Rect)this.scrollsBookRect1info.GetValue(info.target));
+                            (this.scrollsBookinfo.GetValue(info.target) as ScrollBook).setBoundingRect((Rect)this.scrollsBookRect2info.GetValue(info.target));
+                        }
+
+                        
+
+                        if(dcksrchui.showDeleteMenu)
+                        {
+                            dcksrchui.showDeleteMenu = false;
+                            App.Popups.ShowTextInput(this, "", "", "deletedeck", "Delete deck", "If you want to delete your deck, please insert its name ("+this.dcksrchui.infodeck.deckname+"):", "Delete");
+                        }
+                    }
+
+                }
+
 
             }
 
@@ -198,25 +377,42 @@ namespace deckimporter.mod
                     retu = retu + ":" + kvp.Key + "," + kvp.Value;
                 }
             }
+            if (retu == "") return "";
             retu = "http://www.UltimateDeckImporter.com/?l=" +  retu;
+            retu = retu.Replace(",3", "");
+            numberScrollsOnBoard = tableCards.Count();
             return retu;
         }
 
 
         public void PopupCancel(string popupType)
         {
-            DeckCardsMessage dcm = new DeckCardsMessage("");
-            List<Card> cardes = new List<Card>();
-            foreach (Card c in imp.allCards)
+            if (popupType == "sharedeck2")
             {
-                if (this.copydeck.cards.Contains(c.id.ToString()))
-                {
-                    cardes.Add(c);
-                }
+                string link = this.createLink();
+                List<string> data = new List<string>();
+                data.Add(App.MyProfile.ProfileInfo.name);
+                data.Add(link);
+                data.Add(this.choosenname);
+                data.Add("");
+                this.googleie.postDataToGoogleForm(data);
             }
-            dcm.cards = cardes.ToArray();
-            dcm.metadata = this.copydeck.metadata;
-            db.handleMessage(dcm);
+
+            if (popupType == "impdeck")
+            {
+                DeckCardsMessage dcm = new DeckCardsMessage("");
+                List<Card> cardes = new List<Card>();
+                foreach (Card c in imp.allCards)
+                {
+                    if (this.copydeck.cards.Contains(c.id.ToString()))
+                    {
+                        cardes.Add(c);
+                    }
+                }
+                dcm.cards = cardes.ToArray();
+                dcm.metadata = this.copydeck.metadata;
+                db.handleMessage(dcm);
+            }
         }
         public void PopupOk(string popupType)
         {
@@ -241,6 +437,40 @@ namespace deckimporter.mod
 
         public void PopupOk(string popupType, string choice)
         {
+
+            if (popupType == "sharedeck1")
+            {
+
+                App.Popups.ShowTextInput(this, "", "", "sharedeck2", "Share deck", "Insert the description for your deck:", "Share");
+                this.choosenname = choice;
+            }
+
+            if (popupType == "sharedeck2")
+            {
+
+                string link = this.createLink();
+                link=link.Replace("http://www.UltimateDeckImporter.com/?l=", "");
+                
+                List<string> data = new List<string>();
+                data.Add(App.MyProfile.ProfileInfo.name);
+                data.Add(link);
+                data.Add(this.choosenname);
+                data.Add(choice);
+                this.googleie.postDataToGoogleForm(data);
+            }
+
+            if (popupType == "deletedeck" && choice == this.dcksrchui.infodeck.deckname)
+            {
+                string link = "DELETE " + this.dcksrchui.infodeck.link;
+                List<string> data = new List<string>();
+                data.Add(App.MyProfile.ProfileInfo.name);
+                data.Add(link);
+                data.Add(choice);
+                data.Add(this.dcksrchui.infodeck.timestamp);
+                this.googleie.postDataToGoogleForm(data);
+                App.Popups.ShowOk(this, "DeletedDeck", "Deleted Deck", "You deleted your deck! \r\nPlease refresh the decklist in a few seconds.", "OK");
+            }
+
             if (popupType == "impdeck")
             {
                 try
@@ -271,6 +501,29 @@ namespace deckimporter.mod
                     App.Popups.ShowOk(this, "loadOldDeck", "A wild Error appeared!", "please recheck the link and try it again", "OK");
                 }
             }
+
+            if (popupType == "impdeckbuildmode")
+            {
+                try
+                {
+                    string retu = imp.importFromURL(choice);
+
+                    if (retu.StartsWith("You dont own: "))
+                    {
+                        RoomChatMessageMessage nrcmm = new RoomChatMessageMessage("[Note]", retu);
+                        nrcmm.from = "UltimateDeckImporter";
+                        App.ArenaChat.handleMessage(nrcmm);
+                        App.Popups.ShowOk(this, "errorMessage", "You dont own all required Scrolls!", "...buy 'em all!\r\nsee Chat for missing cards.", "OK");
+
+                    }
+                }
+                catch
+                {
+                    App.Popups.ShowOk(this, "loadOldDeck", "A wild Error appeared!", "please recheck the link and try it again", "OK");
+                }
+            }
+
+
         }
 
 
