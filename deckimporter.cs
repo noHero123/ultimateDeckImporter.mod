@@ -390,6 +390,7 @@ namespace deckimporter.mod
             if (popupType == "sharedeck2")
             {
                 string link = this.createLink();
+                link = link.Replace("http://www.UltimateDeckImporter.com/?l=", "");
                 List<string> data = new List<string>();
                 data.Add(App.MyProfile.ProfileInfo.name);
                 data.Add(link);
@@ -438,12 +439,7 @@ namespace deckimporter.mod
         public void PopupOk(string popupType, string choice)
         {
 
-            if (popupType == "sharedeck1")
-            {
-
-                App.Popups.ShowTextInput(this, "", "", "sharedeck2", "Share deck", "Insert the description for your deck:", "Share");
-                this.choosenname = choice;
-            }
+            
 
             if (popupType == "sharedeck2")
             {
@@ -457,6 +453,13 @@ namespace deckimporter.mod
                 data.Add(this.choosenname);
                 data.Add(choice);
                 this.googleie.postDataToGoogleForm(data);
+            }
+
+            if (popupType == "sharedeck1")
+            {
+
+                App.Popups.ShowTextInput(this, "", "", "sharedeck2", "Share deck", "Insert the description for your deck:", "Share");
+                this.choosenname = choice;
             }
 
             if (popupType == "deletedeck" && choice == this.dcksrchui.infodeck.deckname)

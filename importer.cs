@@ -465,12 +465,15 @@ namespace deckimporter.mod
             Deckstatistics retu= new Deckstatistics();
             retu.anzunownedscrolls = 0;
             retu.unownedscrolls = new List<int>();
+            Console.WriteLine("workin on link " + link);
             string url = link;
                 retu.containsDecay=false;
                 retu.containsEnergy=false;
                 retu.containsGrowth=false;
                 retu.containsOrder=false;
-                string ressi = url.Replace("www.UltimateDeckImporter.com/?l=", "");
+                string ressi = url.Replace("http://www.UltimateDeckImporter.com/?l=", "");
+                ressi = ressi.Replace("www.UltimateDeckImporter.com/?l=", "");
+                ressi = ressi.Replace("http://", "");                
                 this.readDeckCardsFromScrollsPWShare(ressi);
                 retu.numberOfScrollsInDeck = this.deckCards.Count();
                 retu.deckList = this.getDecklist();
