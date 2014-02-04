@@ -55,7 +55,7 @@ namespace deckimporter.mod
         public Vector2 scrollPos, scrolll;
         List<displayitems> ahlist = new List<displayitems>();
         List<displayitems> fulllist = new List<displayitems>();
-        Rectomat recto;
+        public Rectomat recto;
         public DecksearchUI()
         {
             this.infodeck.link = "";

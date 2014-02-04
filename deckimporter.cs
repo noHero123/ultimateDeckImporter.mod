@@ -18,6 +18,7 @@ namespace deckimporter.mod
 {
     public class deckimporter : BaseMod, ICommListener, IOkStringCancelCallback, IOkCallback
 	{
+        int oldscreenx=0, oldscreeny=0;
         private int numberScrollsOnBoard = 0;
         private string choosenname = "";
         bool showJoinMessage = true;
@@ -210,12 +211,16 @@ namespace deckimporter.mod
             {
                 
                 GUI.depth = 21;
-                GUIPositioner subMenuPositioner = App.LobbyMenu.getSubMenuPositioner(1f, 8);
-                Rect guildbutton = new Rect(subMenuPositioner.getButtonRect(7f));
-                guildbutton.x = guildbutton.x - 30;
+                if (this.oldscreenx != Screen.width || this.oldscreeny != Screen.height)
+                {
+                    this.dcksrchui.setrecto(this.chatlogstye);
+                    this.dcksrchui.setrecto(this.chatlogstye);
+                    this.oldscreenx = Screen.width;
+                    this.oldscreeny = Screen.height;
+                }
                 if (this.buildmode)
                 {
-                    if (LobbyMenu.drawButton(guildbutton, "Normal Mode", this.lobbyskin))
+                    if (LobbyMenu.drawButton(this.dcksrchui.recto.guildbutton, "Normal Mode", this.lobbyskin))
                     {
                         
                         (this.scrollsBookinfo.GetValue(info.target) as ScrollBook).setRect((Rect)this.scrollsBookRect1info.GetValue(info.target));
@@ -231,7 +236,7 @@ namespace deckimporter.mod
                 }
                 else
                 {
-                    if (LobbyMenu.drawButton(guildbutton, "Build Mode", this.lobbyskin))
+                    if (LobbyMenu.drawButton(this.dcksrchui.recto.guildbutton, "Build Mode", this.lobbyskin))
                     {
                         //make scrollbook clickable
                         

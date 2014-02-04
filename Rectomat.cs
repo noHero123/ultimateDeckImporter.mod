@@ -25,7 +25,7 @@ namespace deckimporter.mod
         public Rect filtermenurect, sbarlabelrect, sbrect, sbrectbutton, sbgrect, sborect, sberect, sbdrect;
         public Rect sbclearrect, sbgeneratebutton, sbloadbutton, sbsavebutton, sbDeckSearchLabelRect, sbDeckSearchRect, sbSharerSearchLabelRect, sbSharerSearchRect;
         public Rect sbfilterrect, tbmessagescroll, sbOnlyShowAffordableLabelRect, sbOnlyShowAffordableRect;
-        public Rect sbclrearpricesbutton;
+        public Rect sbclrearpricesbutton, guildbutton;
         //settings
         public Rect settingRect, setsave, setreset, setload, setpreventspammlabel, setpreventspammrect, setpreventspammlabel2;
         public Rect setowncardsanzbox, setowncardsanzlabel, setsugrangebox, setsugrangelabel;
@@ -87,6 +87,14 @@ namespace deckimporter.mod
         public void setupPositions(bool chatisshown, float rowscale, GUIStyle chatLogStyle, GUISkin cardListPopupSkin)
         {
 
+            GUIPositioner subMenuPositioner = App.LobbyMenu.getSubMenuPositioner(1f, 8);
+            this.guildbutton = new Rect(subMenuPositioner.getButtonRect(7f));
+            guildbutton.x = guildbutton.x - 30;
+            float diff = (float)Screen.width - this.guildbutton.xMax -6f;
+            this.guildbutton.xMin += diff;
+            this.guildbutton.xMax += diff;
+
+            
 
             // set rects for menus
             this.screenRect = new Rect((float)Screen.width * 0.01f, (float)Screen.height * 0.18f, (float)Screen.width * 0.6f, (float)Screen.height * 0.57f);
