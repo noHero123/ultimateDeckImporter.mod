@@ -52,7 +52,7 @@ namespace deckimporter.mod
                 if (rcmm.text.StartsWith("You have joined"))
                 {
 
-                    RoomChatMessageMessage nrcmm = new RoomChatMessageMessage("[Note]", "DeckImporter was loadet");
+                    RoomChatMessageMessage nrcmm = new RoomChatMessageMessage("[note]", "DeckImporter was loadet");
                         nrcmm.from = "UltimateDeckImporter";
                         App.ArenaChat.handleMessage(nrcmm);
                         this.showJoinMessage = false;
@@ -117,7 +117,7 @@ namespace deckimporter.mod
 
 		public static int GetVersion ()
 		{
-			return 2;
+			return 3;
 		}
 
 
@@ -497,7 +497,7 @@ namespace deckimporter.mod
 
                     if (retu.StartsWith("You dont own: "))
                     {
-                        RoomChatMessageMessage nrcmm = new RoomChatMessageMessage("[Note]", retu);
+                        RoomChatMessageMessage nrcmm = new RoomChatMessageMessage("[note]", retu);
                         nrcmm.from = "UltimateDeckImporter";
                         App.ArenaChat.handleMessage(nrcmm);
                         App.Popups.ShowOk(this, "errorMessage", "You dont own all required Scrolls!", "...buy 'em all!\r\nsee Chat for missing cards.", "OK");
@@ -518,7 +518,7 @@ namespace deckimporter.mod
 
                     if (retu.StartsWith("You dont own: "))
                     {
-                        RoomChatMessageMessage nrcmm = new RoomChatMessageMessage("[Note]", retu);
+                        RoomChatMessageMessage nrcmm = new RoomChatMessageMessage("[note]", retu);
                         nrcmm.from = "UltimateDeckImporter";
                         App.ArenaChat.handleMessage(nrcmm);
                         App.Popups.ShowOk(this, "errorMessage", "You dont own all required Scrolls!", "...buy 'em all!\r\nsee Chat for missing cards.", "OK");
