@@ -14,10 +14,16 @@ using System.Text.RegularExpressions;
 using System.Threading;
 
 
+
 namespace deckimporter.mod
 {
     public class deckimporter : BaseMod, ICommListener, IOkStringCancelCallback, IOkCallback
 	{
+
+        bool invalidDeck = false;
+        DeckCardsMessage invalidDeckMessage;
+        bool showMissing = false;
+
         int oldscreenx=0, oldscreeny=0;
         private int numberScrollsOnBoard = 0;
         private string choosenname = "";
@@ -61,7 +67,7 @@ namespace deckimporter.mod
                 }
             }
 
-            if (msg is LibraryViewMessage)
+            if (!this.dckcrtr.sendCheated && msg is LibraryViewMessage)
             {
                 if ((((LibraryViewMessage)msg).profileId == App.MyProfile.ProfileInfo.id))
                 {
@@ -74,6 +80,16 @@ namespace deckimporter.mod
             {
                 dckcrtr.receiveCardlist(msg as CardTypesMessage);
             }
+
+            // doesnt work, scrolls deletes the cards from the deckcardsmessage automatically
+            /*if (!this.buildmode && msg is DeckCardsMessage) // repair mode
+            {
+                DeckCardsMessage dcm = msg as DeckCardsMessage;
+                if (dcm.valid) return;
+                this.invalidDeck = true;
+                this.invalidDeckMessage = dcm;
+
+            }*/
 
             return;
         }
@@ -117,7 +133,7 @@ namespace deckimporter.mod
 
 		public static int GetVersion ()
 		{
-			return 3;
+			return 4;
 		}
 
 
@@ -193,11 +209,12 @@ namespace deckimporter.mod
                 (this.scrollsBookinfo.GetValue(info.target) as ScrollBook).setRect((Rect)this.scrollsBookRect1info.GetValue(info.target));
                 (this.scrollsBookinfo.GetValue(info.target) as ScrollBook).setBoundingRect((Rect)this.scrollsBookRect2info.GetValue(info.target));
             }
+            /*
             if (info.target is DeckBuilder2 && info.targetMethod.Equals("handleMessage") && this.buildmode)
             {
                 if(info.arguments[0] is LibraryViewMessage)
                 this.dckcrtr.sendCheatLibraryView(this.imp);
-            }
+            }*/
 
             if (info.target is ChatUI && info.targetMethod.Equals("Initiate"))
             {
@@ -236,10 +253,19 @@ namespace deckimporter.mod
                 }
                 else
                 {
+
+                    /*if (this.invalidDeck && LobbyMenu.drawButton(this.dcksrchui.recto.repairbutton, "Repair", this.lobbyskin))
+                    {
+                        this.invalidDeck = false;
+                        string link = this.createLinkFromDCM(this.invalidDeckMessage);
+                        imp.importFromURL(link);
+
+                    }*/
+
                     if (LobbyMenu.drawButton(this.dcksrchui.recto.guildbutton, "Build Mode", this.lobbyskin))
                     {
                         //make scrollbook clickable
-                        
+                        this.showMissing = false;
                         (this.scrollsBookinfo.GetValue(info.target) as ScrollBook).setRect((Rect)this.scrollsBookRect1info.GetValue(info.target));
                         (this.scrollsBookinfo.GetValue(info.target) as ScrollBook).setBoundingRect((Rect)this.scrollsBookRect2info.GetValue(info.target));
             
@@ -271,7 +297,7 @@ namespace deckimporter.mod
                 if (this.buildmode)
                 {
                     GUI.skin = this.buttonSkin;
-                    GUIPositioner p = App.LobbyMenu.getSubMenuPositioner(1f, 5);
+                    GUIPositioner p = App.LobbyMenu.getSubMenuPositioner(1f, 5, 140f);
                     float xIndex = 0f;
                     float blubb = 0;
                     if (AspectRatio.now.isWider(AspectRatio._4_3) && AspectRatio.now.isNarrower(AspectRatio._16_9))
@@ -315,6 +341,26 @@ namespace deckimporter.mod
                     if (LobbyMenu.drawButton(func(), "Clear Table") && !this.dcksrchui.showdecksearchUI)
                     {
                         (info.target as DeckBuilder2).clearTable();
+                    }
+                    if (this.dckcrtr.ownMissing)
+                    {
+                        if (showMissing)
+                        {
+                            if (LobbyMenu.drawButton(func(), "Show All") && !this.dcksrchui.showdecksearchUI)
+                            {
+                                this.dckcrtr.sendCheatLibraryView(this.imp);
+                                this.showMissing = false;
+                            }
+
+                        }
+                        else
+                        {
+                            if (LobbyMenu.drawButton(func(), "Show Mis") && !this.dcksrchui.showdecksearchUI)
+                            {
+                                this.dckcrtr.sendMissingLibraryView(this.imp);
+                                this.showMissing = true;
+                            }
+                        }
                     }
 
                     if (this.dcksrchui.showdecksearchUI)
@@ -362,6 +408,33 @@ namespace deckimporter.mod
             return;//return false;
         }
 
+
+        private string createLinkFromDCM(DeckCardsMessage dcm)
+        {
+            string retu = "";
+
+            List<Card> tableCards = dcm.cards.ToList();
+            Dictionary<int, int> cardDic = new Dictionary<int, int>();
+            foreach (Card dc in tableCards)
+            {
+                int type = dc.getType();
+                if (cardDic.ContainsKey(type)) { cardDic[type] = cardDic[type] + 1; } else { cardDic[type] = 1; }
+            }
+
+            foreach (KeyValuePair<int, int> kvp in cardDic)
+            {
+                if (retu == "") { retu = kvp.Key + "," + kvp.Value; }
+                else
+                {
+                    retu = retu + ":" + kvp.Key + "," + kvp.Value;
+                }
+            }
+            if (retu == "") return "";
+            retu = "http://www.UltimateDeckImporter.com/?l=" + retu;
+            retu = retu.Replace(",3", "");
+            numberScrollsOnBoard = tableCards.Count();
+            return retu;
+        }
 
         private string createLink()
         {

@@ -33,7 +33,7 @@ namespace deckimporter.mod
         public Rect setwtblabel1, setwtblabel2, setwtbbutton1, setwtbbutton2, setwtbbox;
         public Rect settakewtsgenlabel, settakewtsgenbutton, settakewtsgenlabel2, settakewtbgenlabel, settakewtbgenbutton, settakewtbgenlabel2;
         public Rect setwtsahlabel, setwtsahbutton, setwtsahlabel2, setwtsahlabel3, setwtsahlabel4, setwtbahlabel, setwtbahbutton, setwtbahlabel2, setwtbahlabel3, setwtbahlabel4, setwtsahbutton2, setwtbahbutton2;
-        public Rect scrollpostbutton, scrollpostlabel1, scrollpostlabel2;
+        public Rect scrollpostbutton, scrollpostlabel1, scrollpostlabel2, repairbutton;
         public float fieldHeight;
         public float scrollBarSize = 20f;
         public float costIconSize, costIconWidth, costIconHeight, cardHeight, cardWidth, labelsWidth, labelX;
@@ -93,6 +93,11 @@ namespace deckimporter.mod
             float diff = (float)Screen.width - this.guildbutton.xMax -6f;
             this.guildbutton.xMin += diff;
             this.guildbutton.xMax += diff;
+            this.repairbutton = new Rect(subMenuPositioner.getButtonRect(6f));
+            repairbutton.x = repairbutton.x - 30;
+            diff = guildbutton.xMin - this.repairbutton.xMax - 6f;
+            this.repairbutton.xMin += diff;
+            this.repairbutton.xMax += diff;
 
             
 
