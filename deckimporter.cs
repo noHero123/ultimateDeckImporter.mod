@@ -17,7 +17,7 @@ using System.Threading;
 
 namespace deckimporter.mod
 {
-    public class deckimporter : BaseMod, ICommListener, IOkStringCancelCallback, IOkCallback
+    public class deckimporter : BaseMod, ICommListener, IOkStringCancelCallback, IOkCallback, IOkCancelCallback
 	{
 
         bool invalidDeck = false;
@@ -47,6 +47,7 @@ namespace deckimporter.mod
         //for copying string into buffer
         Type T = typeof(GUIUtility);
         PropertyInfo systemCopyBufferProperty;
+        string deckfolder = "";
 
 
         public void handleMessage(Message msg)
@@ -104,6 +105,11 @@ namespace deckimporter.mod
 		//initialize everything here, Game is loaded at this point
         public deckimporter()
 		{
+
+
+            string homePath = (Environment.OSVersion.Platform == PlatformID.Unix || Environment.OSVersion.Platform == PlatformID.MacOSX) ? Environment.GetEnvironmentVariable("HOME") : Environment.ExpandEnvironmentVariables("%HOMEDRIVE%%HOMEPATH%");
+            deckfolder = homePath + Path.DirectorySeparatorChar + "scrollsdecks";
+
             generateDeckSaveMessage = typeof(DeckBuilder2).GetMethod("generateDeckSaveMessage", BindingFlags.NonPublic | BindingFlags.Instance);
             chatLogStyleinfo = typeof(ChatUI).GetField("chatMsgStyle", BindingFlags.Instance | BindingFlags.NonPublic);
             scrollsBookinfo = typeof(DeckBuilder2).GetField("scrollBook", BindingFlags.Instance | BindingFlags.NonPublic);
@@ -111,10 +117,28 @@ namespace deckimporter.mod
             scrollsBookRect1info = typeof(DeckBuilder2).GetField("rectLeft", BindingFlags.Instance | BindingFlags.NonPublic);
             dckcrtr = new Deckcreator();
             imp = new Importer();
-            dcksrchui = new DecksearchUI();
-            
             googleie = new GoogleImporterExporter();
+            dcksrchui = new DecksearchUI(deckfolder,imp,googleie);
+            
+           
             this.lobbyskin = (GUISkin)Resources.Load("_GUISkins/Lobby");
+
+            
+            if (!Directory.Exists(deckfolder + Path.DirectorySeparatorChar))
+            {
+                Directory.CreateDirectory(deckfolder + Path.DirectorySeparatorChar);
+            }
+
+            string[] aucfiles = Directory.GetFiles(this.deckfolder, "decks.txt");
+            if (aucfiles.Contains(this.deckfolder + System.IO.Path.DirectorySeparatorChar + "decks.txt"))//File.Exists() was slower
+            {
+                //loadDecks();
+            }
+            else
+            {
+                System.IO.File.WriteAllText(this.deckfolder + System.IO.Path.DirectorySeparatorChar + "decks.txt", "");
+            }
+
             try
             {
                 App.Communicator.addListener(this);
@@ -133,7 +157,7 @@ namespace deckimporter.mod
 
 		public static int GetVersion ()
 		{
-			return 4;
+			return 6;
 		}
 
 
@@ -298,13 +322,28 @@ namespace deckimporter.mod
                 {
                     GUI.skin = this.buttonSkin;
                     GUIPositioner p = App.LobbyMenu.getSubMenuPositioner(1f, 5, 140f);
-                    float xIndex = 0f;
+                    float xIndex = -1f;
                     float blubb = 0;
                     if (AspectRatio.now.isWider(AspectRatio._4_3) && AspectRatio.now.isNarrower(AspectRatio._16_9))
                     {
                         blubb = -0.45f;
                     }
                     Func<Rect> func = () => p.getButtonRect((xIndex += 1f) + blubb - 1f);
+
+                    if (LobbyMenu.drawButton(func(), "Save Deck") && !this.dcksrchui.showdecksearchUI)
+                    {
+                        string link = this.createLink();
+                        if (link != "")
+                        {
+                            App.Popups.ShowTextInput(this, "", "", "savedeck1", "Save deck", "Insert the name for your deck:", "Save");
+
+                        }
+                        else
+                        {
+                            App.Popups.ShowOk(this, "Empty Deck", "Your deck is empty", "You cant save empty decks!", "OK");
+                        }
+
+                    }
                     if (LobbyMenu.drawButton(func(), "Share Deck") && !this.dcksrchui.showdecksearchUI)
                     {
                         string link = this.createLink();
@@ -324,13 +363,16 @@ namespace deckimporter.mod
                         }
                         
                     }
-                    if (LobbyMenu.drawButton(func(), "Search Deck")&& googleie.workthreadready )
+                    if (LobbyMenu.drawButton(func(), "Import Deck")&& googleie.workthreadready )
                     { // get data from google
                         this.dcksrchui.infodeck.link = "";
                         this.dcksrchui.loadList = false;
                         new Thread(new ThreadStart(this.googleie.workthread)).Start();
                         this.dcksrchui.showdecksearchUI = true;
                         this.dcksrchui.setrecto(this.chatlogstye);
+
+                        // load own decks
+                        this.dcksrchui.setOwnList();
                         //make scrollbook UNclickable
                         
                         (this.scrollsBookinfo.GetValue(info.target) as ScrollBook).setBoundingRect(new Rect(0,0,0,0));
@@ -368,7 +410,7 @@ namespace deckimporter.mod
                         if (this.dcksrchui.loadList == false && this.googleie.workthreadready)
                         {
                             this.dckcrtr.sendOrginalLibraryView(this.imp);
-                            dcksrchui.setList(this.googleie.sharedDecks, imp);
+                            dcksrchui.setGoogleList();
                             this.dckcrtr.sendCheatLibraryView(this.imp);
                         }
                         bool oldval =dcksrchui.showdecksearchUI;
@@ -396,7 +438,15 @@ namespace deckimporter.mod
                         if(dcksrchui.showDeleteMenu)
                         {
                             dcksrchui.showDeleteMenu = false;
-                            App.Popups.ShowTextInput(this, "", "", "deletedeck", "Delete deck", "If you want to delete your deck, please insert its name ("+this.dcksrchui.infodeck.deckname+"):", "Delete");
+                            if (dcksrchui.viewmode == 0)
+                            {
+                                App.Popups.ShowTextInput(this, "", "", "deletedeck", "Delete deck", "If you want to delete your shared deck, please insert its name (" + this.dcksrchui.infodeck.deckname + "):", "Delete");
+                            }
+                            else
+                            {
+                                App.Popups.ShowOkCancel(this,"deletedeckprivate", "Delete deck", "You really want to delete your private deck: " + this.dcksrchui.infodeck.deckname, "Ok","Cancel");
+                            }
+
                         }
                     }
 
@@ -495,6 +545,45 @@ namespace deckimporter.mod
         }
         public void PopupOk(string popupType)
         {
+            if (popupType == "deleteprivatedeckok")
+            {
+                this.dcksrchui.setOwnList();
+            }
+            if (popupType == "deletedeckprivate")
+            {
+                string text = System.IO.File.ReadAllText(this.deckfolder + System.IO.Path.DirectorySeparatorChar + "decks.txt");
+                string[] data = text.Split(new string[] { "\r\n" }, StringSplitOptions.RemoveEmptyEntries);
+                foreach (string s in data)
+                {
+                    if (s.Contains(this.dcksrchui.infodeck.deckname + ";"))
+                    {
+                        text = text.Replace(s + "\r\n", "");
+                    }
+                }
+                System.IO.File.WriteAllText(this.deckfolder + System.IO.Path.DirectorySeparatorChar + "decks.txt", text);
+                App.Popups.ShowOk(this, "deleteprivatedeckok", "Deck deleted", "Your deck was deleted.", "OK");
+ 
+            }
+
+            if (popupType == "savedeck2")
+            {
+                string text = System.IO.File.ReadAllText(this.deckfolder + System.IO.Path.DirectorySeparatorChar + "decks.txt");
+                string[] data = text.Split(new string[] { "\r\n" }, StringSplitOptions.RemoveEmptyEntries);
+                foreach(string s in data)
+                {
+                    if (s.Contains(this.choosenname + ";"))
+                    {
+                        text = text.Replace(s+"\r\n","");
+                    }
+                }
+                string link = this.createLink();
+                text = text + this.choosenname + ";" + link + "\r\n";
+                System.IO.File.WriteAllText(this.deckfolder + System.IO.Path.DirectorySeparatorChar + "decks.txt", text);
+                Console.WriteLine("saved own deck");
+                App.Popups.ShowOk(this, "decksave", "Saved Deck", "Your deck was saved.", "OK");
+
+            }
+
             if (popupType == "loadOldDeck")
             {
                 DeckCardsMessage dcm = new DeckCardsMessage("");
@@ -516,7 +605,25 @@ namespace deckimporter.mod
 
         public void PopupOk(string popupType, string choice)
         {
-
+            
+            if (popupType == "savedeck1")
+            {
+                this.choosenname = choice.Replace(";","");
+                string text = System.IO.File.ReadAllText(this.deckfolder + System.IO.Path.DirectorySeparatorChar + "decks.txt");
+                if(text.Contains(this.choosenname+";"))
+                {
+                    App.Popups.ShowOkCancel(this, "savedeck2", "Override Deck", "the name is already in use, want to override existing deck?", "Ok", "Cancel");
+                }
+                else
+                {
+                string link = this.createLink();
+                text = text + this.choosenname + ";" + link + "\r\n";
+                System.IO.File.WriteAllText(this.deckfolder + System.IO.Path.DirectorySeparatorChar + "decks.txt", text);
+                Console.WriteLine("saved own deck");
+                App.Popups.ShowOk(this, "decksave", "Saved Deck", "Your deck was saved.", "OK");
+                }
+ 
+            }
             
 
             if (popupType == "sharedeck2")

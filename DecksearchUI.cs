@@ -8,7 +8,10 @@ namespace deckimporter.mod
 {
     class DecksearchUI
     {
+        public int viewmode = 0;//0 = public, 1 = private
         public string importme = "";
+
+        string deckfolder = "";
 
         private string deckNameFilter = "";
         private string sharerNameFilter = "";
@@ -55,9 +58,16 @@ namespace deckimporter.mod
         public Vector2 scrollPos, scrolll;
         List<displayitems> ahlist = new List<displayitems>();
         List<displayitems> fulllist = new List<displayitems>();
+        List<displayitems> ownlist = new List<displayitems>();
         public Rectomat recto;
-        public DecksearchUI()
+        private Importer deckimp;
+        private GoogleImporterExporter googleie;
+
+        public DecksearchUI(string f, Importer di, GoogleImporterExporter gi)
         {
+            this.googleie = gi;
+            this.deckimp = di;
+            this.deckfolder = f;
             this.infodeck.link = "";
             this.recto = Rectomat.Instance;
             this.setskins((GUISkin)Resources.Load("_GUISkins/CardListPopup"), (GUISkin)Resources.Load("_GUISkins/CardListPopupGradient"), (GUISkin)Resources.Load("_GUISkins/CardListPopupBigLabel"), (GUISkin)Resources.Load("_GUISkins/CardListPopupLeftButton"));
@@ -221,6 +231,10 @@ namespace deckimporter.mod
             this.scrollPos = GUI.BeginScrollView(recto.position3, this.scrollPos, new Rect(0f, 0f, recto.innerRect.width - 20f, recto.fieldHeight * (float)this.ahlist.Count));
             int num = 0;
             GUI.skin = this.cardListPopupBigLabelSkin;
+
+            this.ahlist.Clear();
+            this.updateFilters();
+
             this.ahlist.Reverse();
             foreach (displayitems current in this.ahlist)
             {
@@ -318,7 +332,21 @@ namespace deckimporter.mod
             GUI.EndScrollView();
             this.ahlist.Reverse();
             GUI.color = Color.white;
-
+            GUI.color = new Color(0.5f, 0.5f, 0.5f, 1f);
+            if (this.viewmode == 0) GUI.color = Color.white;
+            if (GUI.Button(recto.publicbuttonrect, "Public"))
+            {
+                this.viewmode = 0;
+                this.infodeck.link = "";
+            }
+            GUI.color = new Color(0.5f, 0.5f, 0.5f, 1f);
+            if (this.viewmode == 1) GUI.color = Color.white;
+            if (GUI.Button(recto.privatebuttonrect, "Private"))
+            {
+                this.viewmode = 1;
+                this.infodeck.link = "";
+            }
+            GUI.color = Color.white;
             if (GUI.Button(recto.updatebuttonrect, "Close"))
             {
                 this.showdecksearchUI = false;
@@ -326,7 +354,8 @@ namespace deckimporter.mod
 
             if (this.infodeck.link!="" && this.infodeck.name== App.MyProfile.ProfileInfo.name && GUI.Button(recto.fillbuttonrect, "Delete"))
             {
-                this.showDeleteMenu = true;
+                    this.showDeleteMenu = true;
+
             }
 
         }
@@ -334,7 +363,16 @@ namespace deckimporter.mod
         public void updateFilters()
         {
             this.ahlist.Clear();
-            foreach (displayitems di in this.fulllist)
+            List<displayitems> disitms= new List<displayitems>();
+            if (this.viewmode == 0)
+            {
+                disitms.AddRange(this.fulllist);
+            }
+            else
+            {
+                disitms.AddRange(this.ownlist);
+            }
+            foreach (displayitems di in disitms)
             {
                 if (di.name.ToLower().Contains(this.sharerNameFilter.ToLower()) && di.deckname.ToLower().Contains(this.deckNameFilter.ToLower()) && ( !(di.containsGrowth && !this.showGrowth) && !(di.containsOrder && !this.showOrder) && !(di.containsEnergy && !this.showEnergy) && !(di.containsDecay && !this.showDecay))) 
                 {
@@ -351,10 +389,49 @@ namespace deckimporter.mod
             }
         }
 
-        public void setList(List<GoogleImporterExporter.sharedItem> input, Importer imp)
+        public void setOwnList()
         {
-            this.ahlist.Clear();
-            foreach (GoogleImporterExporter.sharedItem element in input)
+            this.ownlist.Clear();
+            string text = System.IO.File.ReadAllText(this.deckfolder + System.IO.Path.DirectorySeparatorChar + "decks.txt");
+            string[] decks = text.Split(new string[] { "\r\n" }, StringSplitOptions.RemoveEmptyEntries);
+
+            foreach (string element in decks)
+            {
+
+                displayitems di = new displayitems();
+                di.name = App.MyProfile.ProfileInfo.name;
+                di.link = element.Split(';')[1];
+                di.deckname = element.Split(';')[0];
+                di.description = "";
+                di.containsGrowth = false;
+                di.containsDecay = false;
+                di.containsEnergy = false;
+                di.containsOrder = false;
+                di.timestamp = "2/12/2014 23:10:16";
+
+                //calculate data
+                Importer.Deckstatistics ids = this.deckimp.getdata(di.link);
+                di.numberOfNeededScrolls = ids.anzunownedscrolls;
+
+                di.containsGrowth = ids.containsGrowth;
+                di.containsDecay = ids.containsDecay;
+                di.containsEnergy = ids.containsEnergy;
+                di.containsOrder = ids.containsOrder;
+                di.missingCards = ids.missingCards;
+                di.numberOfScrollsInDeck = ids.numberOfScrollsInDeck;
+                di.wholeDeckList = ids.deckList;
+
+                this.ownlist.Add(di);
+            }
+
+            this.updateFilters();
+
+        }
+
+        public void setGoogleList()
+        {
+            this.fulllist.Clear();
+            foreach (GoogleImporterExporter.sharedItem element in this.googleie.sharedDecks)
             {
                 displayitems di = new displayitems();
                 di.name = element.player;
@@ -368,7 +445,7 @@ namespace deckimporter.mod
                 di.timestamp = element.time;
 
                 //calculate data
-                Importer.Deckstatistics ids= imp.getdata(di.link);
+                Importer.Deckstatistics ids= this.deckimp.getdata(di.link);
                 di.numberOfNeededScrolls = ids.anzunownedscrolls;
 
                      di.containsGrowth = ids.containsGrowth;
@@ -379,11 +456,9 @@ namespace deckimporter.mod
                      di.numberOfScrollsInDeck = ids.numberOfScrollsInDeck;
                      di.wholeDeckList = ids.deckList;
 
-                this.ahlist.Add(di);
+                     this.fulllist.Add(di);
             }
-            this.fulllist.Clear();
-            this.fulllist.AddRange(this.ahlist);
-            this.updateFilters();
+            
             this.loadList = true;
         }
 

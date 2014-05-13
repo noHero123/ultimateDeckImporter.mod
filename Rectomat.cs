@@ -33,7 +33,7 @@ namespace deckimporter.mod
         public Rect setwtblabel1, setwtblabel2, setwtbbutton1, setwtbbutton2, setwtbbox;
         public Rect settakewtsgenlabel, settakewtsgenbutton, settakewtsgenlabel2, settakewtbgenlabel, settakewtbgenbutton, settakewtbgenlabel2;
         public Rect setwtsahlabel, setwtsahbutton, setwtsahlabel2, setwtsahlabel3, setwtsahlabel4, setwtbahlabel, setwtbahbutton, setwtbahlabel2, setwtbahlabel3, setwtbahlabel4, setwtsahbutton2, setwtbahbutton2;
-        public Rect scrollpostbutton, scrollpostlabel1, scrollpostlabel2, repairbutton;
+        public Rect scrollpostbutton, scrollpostlabel1, scrollpostlabel2, repairbutton, privatebuttonrect, publicbuttonrect;
         public float fieldHeight;
         public float scrollBarSize = 20f;
         public float costIconSize, costIconWidth, costIconHeight, cardHeight, cardWidth, labelsWidth, labelX;
@@ -122,6 +122,8 @@ namespace deckimporter.mod
             this.ownbuttonrect = new Rect(bothbuttonrect.xMax + num, this.innerBGRect.yMax + num2 * 0.28f, buttonlength, num2);
             this.updatebuttonrect = new Rect(this.innerRect.xMax - this.innerRect.width * 0.10f - this.innerRect.width * 0.03f, this.innerBGRect.yMax + num2 * 0.28f, buttonlength, num2);
             this.fillbuttonrect = new Rect(this.updatebuttonrect.x - this.innerRect.width * 0.10f - num, this.innerBGRect.yMax + num2 * 0.28f, this.innerRect.width * 0.10f, num2);
+            this.privatebuttonrect = new Rect(this.fillbuttonrect.x - buttonlength - num, updatebuttonrect.yMin, buttonlength, num2);
+            this.publicbuttonrect = new Rect(this.privatebuttonrect.x - buttonlength - num, updatebuttonrect.yMin, buttonlength, num2);
 
             num = (float)Screen.height / (float)Screen.width * 0.16f * rowscale;//0.16
             this.fieldHeight = (this.innerRect.width - this.scrollBarSize) / (1f / num + 1f);
