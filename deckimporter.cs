@@ -157,7 +157,7 @@ namespace deckimporter.mod
 
 		public static int GetVersion ()
 		{
-			return 6;
+			return 7;
 		}
 
 

@@ -355,6 +355,35 @@ namespace deckimporter.mod
 
         }
 
+        private void readDeckCardsFromScrolldier(string s)
+        {
+            Console.WriteLine("#read deck cards");
+            this.deckCards.Clear();
+            string[] stringarray = s.Split(new string[] { "<div class=\"clearfix\" id=" }, StringSplitOptions.RemoveEmptyEntries);
+            stringarray[0] = "#";
+            foreach (string lolo in stringarray)
+            {
+                if (lolo == "#") continue;
+                string data = (lolo.Split(new string[] { " data-title=\"" }, StringSplitOptions.None)[1]).Split('\"')[0];
+                string name = data.Split(new string[] { ", x" }, StringSplitOptions.None)[0];
+                name = name.ToLower();
+
+                string anzz = data.Split(new string[] { ", x" }, StringSplitOptions.None)[1];
+                Console.WriteLine("readed data: " + name + " " + anzz);
+                int anz = Convert.ToInt32(anzz);
+                if (this.allCards.Exists(x => x.getName().ToLower() == name))
+                {
+                    int id = (int)(this.allCards.Find(x => x.getName().ToLower() == name)).getType();
+                    for (int i = 0; i < Math.Min(anz, 3); i++)
+                    {
+                        deckCards.Add(id);
+                    }
+                }
+
+            }
+
+        }
+
 
         public string importFromURL(object urll)
         {
@@ -398,6 +427,22 @@ namespace deckimporter.mod
                 System.IO.StreamReader reader = new System.IO.StreamReader(stream, System.Text.Encoding.UTF8);
                 string ressi = reader.ReadToEnd();
                 readDeckCardsFromSeeMeScrollin(ressi);
+                this.createDeckCardsMessage(false);
+                if (this.noadded) return "noadded";
+                if (this.dontOwnAllCards) return "You dont own: " + this.missingCards;
+                return "ok";
+            }
+            if (url.StartsWith("www.scrolldier.com/deck/") || url.StartsWith("scrolldier.com/deck/"))
+            {
+                Uri urri = new Uri("http://" + url);
+                Console.WriteLine("#load from " + urri.AbsoluteUri);
+                WebRequest myWebRequest = WebRequest.Create(urri);
+                myWebRequest.Timeout = 5000;
+                WebResponse myWebResponse = myWebRequest.GetResponse();
+                System.IO.Stream stream = myWebResponse.GetResponseStream();
+                System.IO.StreamReader reader = new System.IO.StreamReader(stream, System.Text.Encoding.UTF8);
+                string ressi = reader.ReadToEnd();
+                this.readDeckCardsFromScrolldier(ressi);
                 this.createDeckCardsMessage(false);
                 if (this.noadded) return "noadded";
                 if (this.dontOwnAllCards) return "You dont own: " + this.missingCards;
