@@ -49,7 +49,6 @@ namespace deckimporter.mod
         PropertyInfo systemCopyBufferProperty;
         string deckfolder = "";
 
-
         public void handleMessage(Message msg)
         { // collect data for enchantments (or units who buff)
 
@@ -106,7 +105,6 @@ namespace deckimporter.mod
         public deckimporter()
 		{
 
-
             string homePath = (Environment.OSVersion.Platform == PlatformID.Unix || Environment.OSVersion.Platform == PlatformID.MacOSX) ? Environment.GetEnvironmentVariable("HOME") : Environment.ExpandEnvironmentVariables("%HOMEDRIVE%%HOMEPATH%");
             deckfolder = homePath + Path.DirectorySeparatorChar + "scrollsdecks";
 
@@ -157,7 +155,7 @@ namespace deckimporter.mod
 
 		public static int GetVersion ()
 		{
-			return 7;
+			return 8;
 		}
 
 
@@ -308,12 +306,13 @@ namespace deckimporter.mod
                     this.showImportMenu = !this.showImportMenu;
                     copydeck = (DeckSaveMessage)this.generateDeckSaveMessage.Invoke((info.target as DeckBuilder2), new object[] { "copycatt" });
                     (info.target as DeckBuilder2).clearTable();// have to delete the actual deck, or it will be buggy
-                    App.Popups.ShowTextInput(this, "", "", "impdeck", "Import deck", "Insert the link to your deck:", "Import");
+                    //App.Popups.ShowTextInput(this, "", "", "impdeck", "Import deck", "Insert the link to your deck:", "Import");
+                    App.Popups.ShowTextEntry(this, "impdeck", "Import deck","Insert the link to your deck:","Import", "Cancel" , "");
                 }
 
                 if (LobbyMenu.drawButton(new Rect((float)Screen.height * 0.04f + (float)Screen.height * 0.11f * 2f, (float)Screen.height * 0.935f, (float)Screen.height * 0.1f, (float)Screen.height * 0.035f), "Export", this.lobbyskin) && !this.dcksrchui.showdecksearchUI)
                 {
-                    string link = this.createLink();
+                    string link = this.createLinkTheScrollsWay();// this.createLink();
                     systemCopyBufferProperty.SetValue(null, link, null);
                     App.Popups.ShowOk(this, "Export Deck", "A link to your Deck was created...", "...and copied to your clipboard.", "OK");
                 }
@@ -335,8 +334,8 @@ namespace deckimporter.mod
                         string link = this.createLink();
                         if (link != "")
                         {
-                            App.Popups.ShowTextInput(this, "", "", "savedeck1", "Save deck", "Insert the name for your deck:", "Save");
-
+                            //App.Popups.ShowTextInput(this, "", "", "savedeck1", "Save deck", "Insert the name for your deck:", "Save");
+                            App.Popups.ShowTextEntry(this, "savedeck1", "Save deck", "Insert the name for your deck:", "Save", "Cancel", "");
                         }
                         else
                         {
@@ -351,7 +350,8 @@ namespace deckimporter.mod
                         {
                             if (this.numberScrollsOnBoard>=50)
                             {
-                                App.Popups.ShowTextInput(this, "", "", "sharedeck1", "Share deck", "Insert the name for your deck:", "Next step");
+                                //App.Popups.ShowTextInput(this, "", "", "sharedeck1", "Share deck", "Insert the name for your deck:", "Next step");
+                                App.Popups.ShowTextEntry(this, "sharedeck1", "Share deck", "Insert the name for your deck:", "Next step", "Cancel", "");
                             }
                             else {
                                 App.Popups.ShowOk(this, "Invalid Deck", "Your deck is invalid", "You cant share invalid decks!", "OK");
@@ -440,7 +440,8 @@ namespace deckimporter.mod
                             dcksrchui.showDeleteMenu = false;
                             if (dcksrchui.viewmode == 0)
                             {
-                                App.Popups.ShowTextInput(this, "", "", "deletedeck", "Delete deck", "If you want to delete your shared deck, please insert its name (" + this.dcksrchui.infodeck.deckname + "):", "Delete");
+                                //App.Popups.ShowTextInput(this, "", "", "deletedeck", "Delete deck", "If you want to delete your shared deck, please insert its name (" + this.dcksrchui.infodeck.deckname + "):", "Delete");
+                                App.Popups.ShowTextEntry(this, "deletedeck", "Delete deck", "If you want to delete your shared deck, please insert its name (" + this.dcksrchui.infodeck.deckname + "):", "Delete", "Cancel", "");
                             }
                             else
                             {
@@ -512,6 +513,22 @@ namespace deckimporter.mod
             return retu;
         }
 
+        private string createLinkTheScrollsWay()
+        {
+            //{"deck":"","author":"ueHero","types":[198,189,17]}
+            string retu = "{\"deck\":\"\",\"author\":\"" + App.MyProfile.ProfileInfo.name+ "\",\"types\":[" ;
+            List<DeckCard> tableCards = (List<DeckCard>)typeof(DeckBuilder2).GetField("tableCards", BindingFlags.Instance | BindingFlags.NonPublic).GetValue(this.db);
+            string decklist = "";
+            foreach(DeckCard dc in tableCards)
+            {
+                int type=dc.card.getCardInfo().getType();
+                if (decklist != "") decklist += ",";
+                decklist += type + "";
+            }
+
+            retu += decklist + "]}";
+            return retu;
+        }
 
         public void PopupCancel(string popupType)
         {
@@ -643,7 +660,8 @@ namespace deckimporter.mod
             if (popupType == "sharedeck1")
             {
 
-                App.Popups.ShowTextInput(this, "", "", "sharedeck2", "Share deck", "Insert the description for your deck:", "Share");
+                //App.Popups.ShowTextInput(this, "", "", "sharedeck2", "Share deck", "Insert the description for your deck:", "Share");
+                App.Popups.ShowTextEntry(this, "sharedeck2", "Share deck", "Insert the description for your deck:", "Share", "Cancel", "");
                 this.choosenname = choice;
             }
 

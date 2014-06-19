@@ -384,6 +384,18 @@ namespace deckimporter.mod
 
         }
 
+        private void readDeckCardsFromScrollsItself(string s)
+        {
+            Console.WriteLine("#read deck cards");
+            this.deckCards.Clear();
+            foreach (string lolo in s.Split(','))
+            {
+                int id = Convert.ToInt32(lolo);
+                deckCards.Add(id);
+            }
+
+        }
+
 
         public string importFromURL(object urll)
         {
@@ -408,6 +420,21 @@ namespace deckimporter.mod
                 string ressi = reader.ReadToEnd();
                 Console.WriteLine("#get: " + ressi);
                 this.readDeckCardsFromScrollsguide(ressi);
+                this.createDeckCardsMessage(false);
+                if (this.noadded) return "noadded";
+                if (this.dontOwnAllCards) return "You dont own: \r\n" + this.missingCards;
+                return "ok";
+
+            }
+
+            // decks from scrolls-itself :D
+            if (url.StartsWith("{\"deck\":\"") && url.Contains("\",\"types\":[") && url.Contains("]}"))
+            {
+                Console.WriteLine("#load scrolls itself from " + url);
+                string ressi =url.Split(new string[]{"\":["},StringSplitOptions.RemoveEmptyEntries)[1];
+                ressi=ressi.Replace("]}", "");
+                Console.WriteLine("#load from " + ressi);
+                this.readDeckCardsFromScrollsItself(ressi);
                 this.createDeckCardsMessage(false);
                 if (this.noadded) return "noadded";
                 if (this.dontOwnAllCards) return "You dont own: \r\n" + this.missingCards;
